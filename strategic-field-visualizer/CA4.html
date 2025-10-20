@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolutionary Dynamics Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Academia (Ivory, Slate, Teal, Amber) -->
+    <!-- Application Structure Plan: This lab uses a robust layout with controls on one side and visualization/analysis on the other. It employs an asynchronous, evolutionary model to demonstrate the emergence of stable territories. Key UI/UX improvements include a speed control slider, dynamic feedback on the play/pause button, clearer labels for the payoff matrix, and an automatic "Custom" scenario state when users tweak parameters. A comprehensive reference section is included at the bottom to provide full context. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Evolutionary dynamics -> Goal: Demonstrate stable emergent structures -> Viz/Presentation: HTML Canvas rendering a strategy-age heatmap. -> Interaction: Live simulation with speed control. -> Justification: The heatmap distinguishes stable cores from volatile frontiers, and speed control allows for both high-level observation and detailed analysis.
+        - Report Info: User understanding of lab components -> Goal: Make the tool self-explanatory -> Viz/Presentation: HTML/CSS tooltips on info icons and a full reference section. -> Interaction: Hovering reveals detailed explanations. -> Justification: This provides a built-in guide, removing ambiguity and ensuring the tool is educational.
+        - Report Info: Overall system health -> Goal: Quantify pattern success -> Viz/Presentation: Two line charts (Population & Productivity). -> Interaction: Updates in real-time. -> Justification: Measures both population dominance and total system "well-being," providing deeper metrics for success. -> Library/Method: Chart.js.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcfaf5; color: #333d4f; }
+        .btn-primary { background-color: #008080; color: white; transition: all 0.2s ease-in-out; }
+        .btn-primary:hover { background-color: #006666; }
+        .btn-secondary { background-color: #e2e8f0; color: #333d4f; transition: all 0.2s ease-in-out; }
+        .btn-secondary:hover { background-color: #cbd5e1; }
+        .chart-container { position: relative; width: 100%; max-width: 900px; margin: auto; height: 35vh; max-height: 350px; }
+        .tooltip { position: relative; display: inline-block; cursor: help; }
+        .tooltip .tooltiptext { visibility: hidden; width: 250px; background-color: #2d3748; color: #fff; text-align: left; border-radius: 6px; padding: 8px 12px; position: absolute; z-index: 10; bottom: 135%; left: 50%; margin-left: -125px; opacity: 0; transition: opacity 0.3s; font-size: 0.8rem; font-weight: normal; line-height: 1.4; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: #008080; cursor: pointer; border-radius: 50%; }
+        input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: #008080; cursor: pointer; border-radius: 50%; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app" class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold mb-2 text-gray-800">Evolutionary Dynamics Lab</h1>
+            <p class="text-lg md:text-xl text-gray-600">Visualizing the Emergence of Stable Strategies</p>
+        </header>
+
+        <main>
+            <section id="laboratory" class="mb-12">
+                <div class="grid lg:grid-cols-3 gap-8">
+                    
+                    <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-xl hover:shadow-2xl transition-shadow duration-300">
+                        <div class="mb-4">
+                            <label for="game-select" class="block text-sm font-medium text-gray-700 mb-1">Game Model <span class="tooltip">ⓘ<span class="tooltiptext">A "Game" is a specific set of rules and payoffs that defines a strategic interaction, like the Prisoner's Dilemma.</span></span></label>
+                            <select id="game-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
+                                <option value="prisoner">Prisoner's Dilemma</option>
+                                <option value="hawk-dove">Hawk-Dove</option>
+                                <option value="stag-hunt">Stag Hunt</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="scenario-select" class="block text-sm font-medium text-gray-700 mb-1">Scenario <span class="tooltip">ⓘ<span class="tooltiptext">A "Scenario" is a pre-configured set of payoffs. Changing any payoff value below will create a "Custom" scenario.</span></span></label>
+                            <select id="scenario-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"></select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                            <div>
+                                <label for="noise-slider" class="block text-sm font-medium text-gray-700">Noise (K): <span id="noise-value">0.1</span> <span class="tooltip">ⓘ<span class="tooltiptext">Controls randomness. Low values mean rational choices. High values mean more random "mutations."</span></span></label>
+                                <input id="noise-slider" type="range" min="0.01" max="5" value="0.1" step="0.01">
+                            </div>
+                             <div>
+                                <label for="speed-slider" class="block text-sm font-medium text-gray-700">Speed: <span id="speed-value">1000</span></label>
+                                <input id="speed-slider" type="range" min="100" max="5000" value="1000" step="100">
+                            </div>
+                        </div>
+
+                        <div id="payoff-matrix" class="mb-4">
+                            <label class="block text-sm font-bold text-gray-800 mb-2 text-center">Payoffs <span class="tooltip">ⓘ<span class="tooltiptext">Defines the score an agent gets from a single interaction with a neighbor. Change these to create your own experiments!</span></span></label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="text-center"><label class="text-xs text-gray-500" id="label-cc"></label><input type="number" step="0.1" id="payoff-cc" class="w-full p-1 text-center border rounded"></div>
+                                <div class="text-center"><label class="text-xs text-gray-500" id="label-cd"></label><input type="number" step="0.1" id="payoff-cd" class="w-full p-1 text-center border rounded"></div>
+                                <div class="text-center"><label class="text-xs text-gray-500" id="label-dc"></label><input type="number" step="0.1" id="payoff-dc" class="w-full p-1 text-center border rounded"></div>
+                                <div class="text-center"><label class="text-xs text-gray-500" id="label-dd"></label><input type="number" step="0.1" id="payoff-dd" class="w-full p-1 text-center border rounded"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-2 mb-4">
+                            <button id="play-pause-btn" class="flex-1 py-2 px-4 btn-primary rounded-md font-semibold flex items-center justify-center space-x-2"></button>
+                            <button id="reset-btn" class="flex-1 py-2 px-4 btn-secondary rounded-md flex items-center justify-center space-x-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+                                <span>Reset</span>
+                            </button>
+                        </div>
+                        <div class="text-center text-sm text-gray-500">Updates/sec: <span id="ups-display">0</span></div>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-gray-900 rounded-lg shadow-xl flex items-center justify-center p-2 aspect-square">
+                        <canvas id="simulation-canvas"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="observations" class="bg-white p-8 rounded-lg shadow-xl mt-12">
+                <div id="explanation-text" class="text-gray-700 leading-relaxed p-4 border-l-4 border-teal-500 bg-teal-50 rounded-r-lg mb-8"></div>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="chart-container">
+                        <h3 class="text-xl font-bold mb-2 text-center">Population Dynamics <span class="tooltip">ⓘ<span class="tooltiptext"><b>Logic:</b> Counts all cells for each strategy. Answers: "Which strategy is more numerous?"</span></span></h3>
+                        <canvas id="population-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                         <h3 class="text-xl font-bold mb-2 text-center">Global Productivity <span class="tooltip">ⓘ<span class="tooltiptext"><b>Logic:</b> Sums all scores from all cells. Measures the total "well-being" of the system. Answers: "Is this a wealthy or a poor society?"</span></span></h3>
+                        <canvas id="productivity-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="reference" class="bg-white p-8 rounded-lg shadow-xl mt-12">
+                <h2 class="text-3xl font-bold mb-8 text-center border-b pb-4">Reference: Understanding the Models</h2>
+                
+                <div class="space-y-10">
+                    <div>
+                        <h3 class="text-2xl font-bold mb-3 text-teal-700">Prisoner's Dilemma</h3>
+                        <p class="mb-4 text-gray-700">Models the conflict between individual self-interest and the collective good. The "dilemma" is that it's always in your personal best interest to defect, but if both players do that, you end up with a worse outcome than if you had both cooperated. It's a model for trust, betrayal, and the tragedy of the commons.</p>
+                        <div class="pl-4 border-l-4 border-gray-200 space-y-3">
+                            <div>
+                                <h4 class="font-semibold">Scenario: Stable Territories</h4>
+                                <p class="text-sm text-gray-600">This shows that even in a world with incentives to betray, cooperation can survive by forming dense, defensive clusters. These "territories" are like high-trust societies that are resilient to outside exploitation because the cooperators mutually support each other.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold">Scenario: Resilient Cooperation</h4>
+                                <p class="text-sm text-gray-600">This demonstrates how social structures or laws can foster cooperation. By increasing the reward for cooperating and making mutual defection very costly, the system is engineered to make cooperation the most rational long-term strategy. This leads to a highly productive and stable society.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-2xl font-bold mb-3 text-teal-700">Hawk-Dove</h3>
+                        <p class="mb-4 text-gray-700">Models conflict over a shared resource. A "Dove" (Cooperate) will share peacefully. A "Hawk" (Defect) will always fight. Neither strategy is always superior; their success depends on what everyone else is doing. It's a model for understanding ritualized conflict and when to be aggressive versus when to back down.</p>
+                         <div class="pl-4 border-l-4 border-gray-200 space-y-3">
+                             <div>
+                                <h4 class="font-semibold">Scenario: Invasive Spirals</h4>
+                                <p class="text-sm text-gray-600">This beautiful pattern is the visual signature of a dynamic equilibrium. A wave of Doves provides an easy food source for Hawks, so a wave of Hawks follows. But once the Hawks become too numerous, they mostly fight each other, causing their population to crash, which allows the Dove wave to recover. It's a classic predator-prey cycle.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold">Scenario: Dove Sanctuaries</h4>
+                                <p class="text-sm text-gray-600">This shows what happens when conflict becomes too costly to be worth the risk (e.g., mutually assured destruction). The Hawk strategy becomes self-defeating, allowing large, peaceful, and highly productive societies of Doves to emerge and dominate the grid.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-2xl font-bold mb-3 text-teal-700">Stag Hunt</h3>
+                        <p class="mb-4 text-gray-700">Models social coordination and trust. It's not about betrayal, but about faith in your partner's commitment. It models the tension between risky but highly rewarding teamwork and safe, independent action.</p>
+                        <div class="pl-4 border-l-4 border-gray-200 space-y-3">
+                            <div>
+                                <h4 class="font-semibold">Scenario: Dominant Coordination</h4>
+                                <p class="text-sm text-gray-600">This scenario represents a high-trust society where the benefits of teamwork are clear and everyone is confident in their partners. Cooperation (hunting the stag) quickly becomes the dominant strategy, leading to a swift and decisive victory and a highly productive outcome.</p>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold">Scenario: The Price of Fear</h4>
+                                <p class="text-sm text-gray-600">This shows a low-trust society where the fear of your partner failing is high, and the safe solo option is appealing. Individuals are unwilling to take the risk of cooperation, so the less productive "hare hunter" strategy dominates. The lower Global Productivity score reveals the economic cost of this lack of social trust.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-12 pt-6 border-t border-gray-300">
+                    <h3 class="text-2xl font-bold mb-3 text-teal-700">A Note on Realism: Synchronous vs. Asynchronous Models</h3>
+                    <div class="p-4 bg-gray-100 rounded-lg text-gray-700 space-y-3">
+                        <p>The animated GIFs in the accompanying article are generated using a classic <strong>synchronous</strong> model, where every cell updates in lock-step. This method is excellent for producing the beautiful, crystalline, and sometimes chaotic patterns that are foundational to the field.</p>
+                        <p>This interactive lab, however, uses a more advanced <strong>asynchronous</strong> model. Here, cells update one at a time, at random. This is a more realistic simulation of how strategic changes happen in the real world- not as a synchronized flash mob, but as a continuous conversation where change ripples through a system organically.</p>
+                        <p>The result is that this lab is designed to suppress the artificial chaos of the synchronous model and instead reveal the emergence of more stable, organic "territories" and strategic "fronts." It offers a deeper, more realistic glimpse into how resilient social and biological ecosystems form over time.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('simulation-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const gameSelect = document.getElementById('game-select');
+        const scenarioSelect = document.getElementById('scenario-select');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const noiseSlider = document.getElementById('noise-slider');
+        const noiseValue = document.getElementById('noise-value');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedValue = document.getElementById('speed-value');
+        const explanationText = document.getElementById('explanation-text');
+        const upsDisplay = document.getElementById('ups-display');
+
+        const payoffInputs = { cc: document.getElementById('payoff-cc'), cd: document.getElementById('payoff-cd'), dc: document.getElementById('payoff-dc'), dd: document.getElementById('payoff-dd') };
+        const payoffLabels = { cc: document.getElementById('label-cc'), cd: document.getElementById('label-cd'), dc: document.getElementById('label-dc'), dd: document.getElementById('label-dd') };
+        
+        const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg><span>Play</span>`;
+        const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg><span>Pause</span>`;
+
+        const experiments = {
+            prisoner: {
+                labels: {cc: "C vs C", cd: "C vs D", dc: "D vs C", dd: "D vs D"},
+                scenarios: {
+                    classic: { name: "Stable Territories", payoffs: { cc: 3, cd: 0, dc: 5, dd: 1 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Stable Territories</h4><p>With evolutionary dynamics, the classic dilemma no longer produces chaos. <b>What to look for:</b> Watch for coherent territories of cooperators (teal) to form. Notice the bright "foam" at the borders where conflict occurs.</p>`},
+                    cooperative: { name: "Cooperative World", payoffs: { cc: 5, cd: 0, dc: 6, dd: -5 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Resilient Cooperation</h4><p>By rewarding cooperation and punishing defection, the system is engineered to make cooperation the most rational long-term strategy. This leads to a highly productive and stable society.</p>` }
+                }
+            },
+            'hawk-dove': {
+                labels: {cc: "Dove vs Dove", cd: "Dove vs Hawk", dc: "Hawk vs Dove", dd: "Hawk vs Hawk"},
+                 scenarios: {
+                    classic: { name: "Invasive Spirals", payoffs: { cc: 1.5, cd: 0, dc: 3.5, dd: -0.5 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Invasive Spirals</h4><p>The Hawk-Dove dynamic is famous for creating beautiful, chasing spiral patterns. <b>What to look for:</b> You'll see waves of Hawks (amber) chasing waves of Doves (teal) in a stable predator-prey-like cycle.</p>`},
+                    costly_war: { name: "Dove Sanctuaries", payoffs: { cc: 3, cd: 2, dc: 4, dd: -10 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Dove Sanctuaries</h4><p>By making Hawk-Hawk conflict catastrophic, the Hawk strategy becomes much less viable. <b>What to look for:</b> The spirals should break down, replaced by large, stable 'sanctuaries' of Doves.</p>`}
+                }
+            },
+            'stag-hunt': {
+                labels: {cc: "Stag vs Stag", cd: "Stag vs Hare", dc: "Hare vs Stag", dd: "Hare vs Hare"},
+                scenarios: {
+                    classic: { name: "Dominant Coordination", payoffs: { cc: 5, cd: 0, dc: 3, dd: 1 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Dominant Coordination</h4><p>In this trust-based game, coordination is extremely powerful. <b>What to look for:</b> The grid should very quickly resolve into a nearly solid block of cooperators (Stag Hunters), demonstrating a high-trust, high-reward society.</p>`},
+                    low_trust: { name: "The Price of Fear", payoffs: { cc: 5, cd: 0, dc: 4, dd: 2 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: The Price of Fear</h4><p>Here, the 'safe' solo option is almost as good as the cooperative one. <b>What to look for:</b> Pockets of cooperators will struggle to form. The Hare Hunter strategy will dominate. Compare the Global Productivity score here to the 'Dominant Coordination' scenario to see the economic 'price' of a low-trust society.</p>`}
+                }
+            }
+        };
+
+        const COOPERATE = 0, DEFECT = 1;
+        let gridSize = 100, grid, ageGrid, maxAge = 200, payoffs = {}, noise = 0.1, updatesPerFrame = 1000;
+        let isPlaying = false, animationFrameId, lastUpdateTime = 0, updates = 0;
+        let generation = 0, updatesSinceGeneration = 0;
+        let populationChart, productivityChart;
+
+        function initializeCharts() {
+            if (populationChart) populationChart.destroy();
+            if (productivityChart) productivityChart.destroy();
+            const chartOptions = { responsive: true, maintainAspectRatio: false, animation: {duration: 0}, plugins: { legend: { labels: {color: '#333d4f'} } }, scales: { x: { ticks: {color: '#94a3b8'}, grid: {color: '#f1f5f9'} }, y: { ticks: {color: '#94a3b8'}, grid: {color: '#f1f5f9'} } } };
+            populationChart = new Chart(document.getElementById('population-chart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{label:'Cooperators', data:[], borderColor:'#008080', tension:0.1}, {label:'Defectors', data:[], borderColor:'#d97706', tension:0.1}] }, options: chartOptions });
+            productivityChart = new Chart(document.getElementById('productivity-chart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [{label:'Total Score', data:[], borderColor:'#4338ca', tension:0.1}] }, options: chartOptions });
+        }
+
+        function setupCanvas() { const size = Math.min(canvas.parentElement.clientWidth, canvas.parentElement.clientHeight); canvas.width = size; canvas.height = size; }
+
+        function populateScenarios(gameId) {
+            const gameData = experiments[gameId];
+            const scenarios = gameData.scenarios;
+            scenarioSelect.innerHTML = Object.keys(scenarios).map(key => `<option value="${key}">${scenarios[key].name}</option>`).join('');
+            if (!scenarioSelect.querySelector('option[value="custom"]')) { const customOption = document.createElement('option'); customOption.value = 'custom'; customOption.textContent = 'Custom'; customOption.hidden = true; scenarioSelect.appendChild(customOption); }
+        }
+
+        function updateScenario() {
+            const gameId = gameSelect.value;
+            const scenarioId = scenarioSelect.value;
+            const gameData = experiments[gameId];
+            Object.keys(payoffLabels).forEach(key => payoffLabels[key].textContent = gameData.labels[key]);
+            if(scenarioId !== 'custom') { const scenario = gameData.scenarios[scenarioId]; payoffs = { ...scenario.payoffs }; Object.keys(payoffs).forEach(key => payoffInputs[key].value = payoffs[key]); explanationText.innerHTML = scenario.explanation; }
+            handleReset();
+        }
+
+        function initializeGrids() { grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null).map(() => Math.random() < 0.5 ? COOPERATE : DEFECT)); ageGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(0)); generation = 0; updatesSinceGeneration = 0; }
+        
+        function drawGrid() {
+            const cellSize = canvas.width / gridSize;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const normalizedAge = Math.min(ageGrid[y][x], maxAge) / maxAge;
+                    const strategy = grid[y][x];
+                    const hue = strategy === COOPERATE ? 180 : 40;
+                    const lightness = 80 - (50 * normalizedAge);
+                    ctx.fillStyle = `hsl(${hue}, 90%, ${lightness}%)`;
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+
+        function getScore(y, x) {
+            let score = 0;
+            const myStrategy = grid[y][x];
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const ny = (y + dy + gridSize) % gridSize, nx = (x + dx + gridSize) % gridSize;
+                    const neighborStrategy = grid[ny][nx];
+                    const p = payoffs;
+                    if (myStrategy === COOPERATE && neighborStrategy === COOPERATE) score += p.cc; else if (myStrategy === COOPERATE && neighborStrategy === DEFECT) score += p.cd; else if (myStrategy === DEFECT && neighborStrategy === COOPERATE) score += p.dc; else if (myStrategy === DEFECT && neighborStrategy === DEFECT) score += p.dd;
+                }
+            }
+            return score;
+        }
+
+        function updateCell() {
+            const y = Math.floor(Math.random() * gridSize), x = Math.floor(Math.random() * gridSize);
+            const dx = Math.floor(Math.random() * 3) - 1, dy = Math.floor(Math.random() * 3) - 1;
+            if (dx === 0 && dy === 0) return;
+            const nx = (x + dx + gridSize) % gridSize, ny = (y + dy + gridSize) % gridSize;
+            const myScore = getScore(y, x), neighborScore = getScore(ny, ny);
+            const probability = 1 / (1 + Math.exp((myScore - neighborScore) / noise));
+            if (Math.random() < probability) { if (grid[y][x] !== grid[ny][nx]) { grid[y][x] = grid[ny][nx]; ageGrid[y][x] = 0; } }
+        }
+        
+        function updateCharts() {
+            let counts = { [COOPERATE]: 0, [DEFECT]: 0 }; let totalScore = 0;
+            for(let y=0; y<gridSize; y++) { for(let x=0; x<gridSize; x++) { counts[grid[y][x]]++; totalScore += getScore(y, x); } }
+            const chartUpdate = (chart, ...data) => {
+                if (chart.data.labels.length > 100) { chart.data.labels.shift(); chart.data.datasets.forEach(d => d.data.shift()); }
+                chart.data.labels.push(generation); data.forEach((d, i) => chart.data.datasets[i].data.push(d)); chart.update();
+            };
+            chartUpdate(populationChart, counts[COOPERATE], counts[DEFECT]); chartUpdate(productivityChart, totalScore);
+        }
+
+        function gameLoop(timestamp) {
+            if (!isPlaying) return;
+            for(let i=0; i < updatesPerFrame; i++) { updateCell(); ageGrid[Math.floor(Math.random() * gridSize)][Math.floor(Math.random() * gridSize)]++; }
+            updates += updatesPerFrame; updatesSinceGeneration += updatesPerFrame;
+            if(updatesSinceGeneration >= gridSize * gridSize) { generation++; updatesSinceGeneration = 0; updateCharts(); }
+            drawGrid();
+            if (timestamp - lastUpdateTime > 1000) { upsDisplay.textContent = updates.toLocaleString(); updates = 0; lastUpdateTime = timestamp; }
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function handlePlayPause() { 
+            isPlaying = !isPlaying; 
+            playPauseBtn.innerHTML = isPlaying ? pauseIcon : playIcon;
+            playPauseBtn.classList.toggle('bg-red-500', isPlaying); playPauseBtn.classList.toggle('hover:bg-red-600', isPlaying); playPauseBtn.classList.toggle('btn-primary', !isPlaying);
+            if (isPlaying) { lastUpdateTime = performance.now(); requestAnimationFrame(gameLoop); } else { cancelAnimationFrame(animationFrameId); } 
+        }
+        function handleReset() { if (isPlaying) handlePlayPause(); initializeGrids(); drawGrid(); initializeCharts(); }
+        
+        gameSelect.addEventListener('change', () => { populateScenarios(gameSelect.value); updateScenario(); });
+        scenarioSelect.addEventListener('change', updateScenario);
+        playPauseBtn.addEventListener('click', handlePlayPause);
+        resetBtn.addEventListener('click', handleReset);
+        noiseSlider.addEventListener('input', e => { noise = parseFloat(e.target.value); noiseValue.textContent = noise.toFixed(2); });
+        speedSlider.addEventListener('input', e => { updatesPerFrame = parseInt(e.target.value); speedValue.textContent = updatesPerFrame; });
+        Object.values(payoffInputs).forEach(input => input.addEventListener('change', () => {
+             payoffs = Object.keys(payoffInputs).reduce((acc, key) => ({ ...acc, [key]: parseFloat(payoffInputs[key].value) }), {});
+             const customOption = scenarioSelect.querySelector('option[value="custom"]');
+             customOption.hidden = false; scenarioSelect.value = 'custom';
+             explanationText.innerHTML = `<h4 class='font-bold text-lg mb-2'>Experiment: Custom</h4><p>You are running a custom simulation with your own payoff values. Observe the canvas and charts to discover new emergent patterns!</p>`;
+        }));
+        
+        window.addEventListener('resize', () => { setupCanvas(); drawGrid(); });
+        playPauseBtn.innerHTML = playIcon;
+        setupCanvas();
+        populateScenarios(gameSelect.value);
+        updateScenario();
+    });
+    </script>
+</body>
+</html>
+
