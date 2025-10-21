@@ -285,7 +285,7 @@
             const dx = Math.floor(Math.random() * 3) - 1, dy = Math.floor(Math.random() * 3) - 1;
             if (dx === 0 && dy === 0) return;
             const nx = (x + dx + gridSize) % gridSize, ny = (y + dy + gridSize) % gridSize;
-            const myScore = getScore(y, x), neighborScore = getScore(ny, ny);
+            const myScore = getScore(y, x), neighborScore = getScore(ny, nx);
             const probability = 1 / (1 + Math.exp((myScore - neighborScore) / noise));
             if (Math.random() < probability) { if (grid[y][x] !== grid[ny][nx]) { grid[y][x] = grid[ny][nx]; ageGrid[y][x] = 0; } }
         }
