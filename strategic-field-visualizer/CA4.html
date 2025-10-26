@@ -396,7 +396,7 @@
         function updateExplanationForScenario(baseExplanation) {
             const modeNote = buggyMode ? 
                 `<div class="mt-3 p-3 bg-amber-100 border-l-4 border-amber-400 rounded-r-lg"><strong>Diagonal Sampling Effect:</strong> This mode consistently shows the expected patterns described above, as the diagonal bias appears to stabilize pattern formation and enhance cooperation survival.</div>` :
-                `<div class="mt-3 p-3 bg-teal-100 border-l-4 border-teal-400 rounded-r-lg"><strong>Standard Logic:</strong> This mode uses mathematically precise evolutionary game theory. Note that asynchronous updates may produce more subtle or fragmented patterns compared to the classic synchronous models described above.</div>`;
+                `<div class="mt-3 p-3 bg-teal-100 border-l-4 border-teal-400 rounded-r-lg"><strong>Standard Logic:</strong> This mode follows conventional asynchronous evolutionary game theory frameworks. Note that this implementation may produce more subtle or fragmented patterns compared to the synchronous models described in the accompanying article.</div>`;
             
             explanationText.innerHTML = baseExplanation + modeNote;
         }
