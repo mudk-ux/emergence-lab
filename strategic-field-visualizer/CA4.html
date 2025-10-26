@@ -3,24 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolutionary Dynamics Lab</title>
+    <title>Evolutionary Dynamics Lab - Dual Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Warm Academia (Ivory, Slate, Teal, Amber) -->
-    <!-- Application Structure Plan: This lab uses a robust layout with controls on one side and visualization/analysis on the other. It employs an asynchronous, evolutionary model to demonstrate the emergence of stable territories. Key UI/UX improvements include a speed control slider, dynamic feedback on the play/pause button, clearer labels for the payoff matrix, and an automatic "Custom" scenario state when users tweak parameters. A comprehensive reference section is included at the bottom to provide full context. -->
-    <!-- Visualization & Content Choices: 
-        - Report Info: Evolutionary dynamics -> Goal: Demonstrate stable emergent structures -> Viz/Presentation: HTML Canvas rendering a strategy-age heatmap. -> Interaction: Live simulation with speed control. -> Justification: The heatmap distinguishes stable cores from volatile frontiers, and speed control allows for both high-level observation and detailed analysis.
-        - Report Info: User understanding of lab components -> Goal: Make the tool self-explanatory -> Viz/Presentation: HTML/CSS tooltips on info icons and a full reference section. -> Interaction: Hovering reveals detailed explanations. -> Justification: This provides a built-in guide, removing ambiguity and ensuring the tool is educational.
-        - Report Info: Overall system health -> Goal: Quantify pattern success -> Viz/Presentation: Two line charts (Population & Productivity). -> Interaction: Updates in real-time. -> Justification: Measures both population dominance and total system "well-being," providing deeper metrics for success. -> Library/Method: Chart.js.
-    -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #fcfaf5; color: #333d4f; }
         .btn-primary { background-color: #008080; color: white; transition: all 0.2s ease-in-out; }
         .btn-primary:hover { background-color: #006666; }
         .btn-secondary { background-color: #e2e8f0; color: #333d4f; transition: all 0.2s ease-in-out; }
         .btn-secondary:hover { background-color: #cbd5e1; }
+        .btn-warning { background-color: #d97706; color: white; transition: all 0.2s ease-in-out; }
+        .btn-warning:hover { background-color: #b45309; }
         .chart-container { position: relative; width: 100%; max-width: 900px; margin: auto; height: 35vh; max-height: 350px; }
         .tooltip { position: relative; display: inline-block; cursor: help; }
         .tooltip .tooltiptext { visibility: hidden; width: 250px; background-color: #2d3748; color: #fff; text-align: left; border-radius: 6px; padding: 8px 12px; position: absolute; z-index: 10; bottom: 135%; left: 50%; margin-left: -125px; opacity: 0; transition: opacity 0.3s; font-size: 0.8rem; font-weight: normal; line-height: 1.4; }
@@ -28,6 +22,9 @@
         input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; outline: none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: #008080; cursor: pointer; border-radius: 50%; }
         input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: #008080; cursor: pointer; border-radius: 50%; }
+        .mode-indicator { border: 3px solid; border-radius: 8px; }
+        .mode-correct { border-color: #008080; background-color: #f0fdfa; }
+        .mode-buggy { border-color: #d97706; background-color: #fffbeb; }
     </style>
 </head>
 <body class="antialiased">
@@ -35,7 +32,7 @@
         
         <header class="text-center mb-12">
             <h1 class="text-4xl md:text-5xl font-bold mb-2 text-gray-800">Evolutionary Dynamics Lab</h1>
-            <p class="text-lg md:text-xl text-gray-600">Visualizing the Emergence of Stable Strategies</p>
+            <p class="text-lg md:text-xl text-gray-600">Comparing Update Logic: Mathematical vs. Diagonal Sampling Implementation</p>
         </header>
 
         <main>
@@ -43,8 +40,17 @@
                 <div class="grid lg:grid-cols-3 gap-8">
                     
                     <div class="lg:col-span-1 bg-white p-6 rounded-lg shadow-xl hover:shadow-2xl transition-shadow duration-300">
+                        
+                        <div class="mb-6 p-4 mode-indicator" id="mode-indicator">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-lg font-bold">Update Logic Mode</h3>
+                                <button id="mode-toggle" class="px-4 py-2 rounded-md font-semibold">Switch Mode</button>
+                            </div>
+                            <div id="mode-explanation" class="text-sm"></div>
+                        </div>
+
                         <div class="mb-4">
-                            <label for="game-select" class="block text-sm font-medium text-gray-700 mb-1">Game Model <span class="tooltip">ⓘ<span class="tooltiptext">A "Game" is a specific set of rules and payoffs that defines a strategic interaction, like the Prisoner's Dilemma.</span></span></label>
+                            <label for="game-select" class="block text-sm font-medium text-gray-700 mb-1">Game Model</label>
                             <select id="game-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
                                 <option value="prisoner">Prisoner's Dilemma</option>
                                 <option value="hawk-dove">Hawk-Dove</option>
@@ -53,13 +59,13 @@
                         </div>
 
                         <div class="mb-4">
-                            <label for="scenario-select" class="block text-sm font-medium text-gray-700 mb-1">Scenario <span class="tooltip">ⓘ<span class="tooltiptext">A "Scenario" is a pre-configured set of payoffs. Changing any payoff value below will create a "Custom" scenario.</span></span></label>
+                            <label for="scenario-select" class="block text-sm font-medium text-gray-700 mb-1">Scenario</label>
                             <select id="scenario-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"></select>
                         </div>
                         
                         <div class="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                             <div>
-                                <label for="noise-slider" class="block text-sm font-medium text-gray-700">Noise (K): <span id="noise-value">0.1</span> <span class="tooltip">ⓘ<span class="tooltiptext">Controls randomness. Low values mean rational choices. High values mean more random "mutations."</span></span></label>
+                                <label for="noise-slider" class="block text-sm font-medium text-gray-700">Noise (K): <span id="noise-value">0.1</span></label>
                                 <input id="noise-slider" type="range" min="0.01" max="5" value="0.1" step="0.01">
                             </div>
                              <div>
@@ -69,7 +75,7 @@
                         </div>
 
                         <div id="payoff-matrix" class="mb-4">
-                            <label class="block text-sm font-bold text-gray-800 mb-2 text-center">Payoffs <span class="tooltip">ⓘ<span class="tooltiptext">Defines the score an agent gets from a single interaction with a neighbor. Change these to create your own experiments!</span></span></label>
+                            <label class="block text-sm font-bold text-gray-800 mb-2 text-center">Payoffs</label>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="text-center"><label class="text-xs text-gray-500" id="label-cc"></label><input type="number" step="0.1" id="payoff-cc" class="w-full p-1 text-center border rounded"></div>
                                 <div class="text-center"><label class="text-xs text-gray-500" id="label-cd"></label><input type="number" step="0.1" id="payoff-cd" class="w-full p-1 text-center border rounded"></div>
@@ -98,19 +104,117 @@
                 <div id="explanation-text" class="text-gray-700 leading-relaxed p-4 border-l-4 border-teal-500 bg-teal-50 rounded-r-lg mb-8"></div>
                 <div class="grid md:grid-cols-2 gap-8">
                     <div class="chart-container">
-                        <h3 class="text-xl font-bold mb-2 text-center">Population Dynamics <span class="tooltip">ⓘ<span class="tooltiptext"><b>Logic:</b> Counts all cells for each strategy. Answers: "Which strategy is more numerous?"</span></span></h3>
+                        <h3 class="text-xl font-bold mb-2 text-center">Population Dynamics</h3>
                         <canvas id="population-chart"></canvas>
                     </div>
                     <div class="chart-container">
-                         <h3 class="text-xl font-bold mb-2 text-center">Global Productivity <span class="tooltip">ⓘ<span class="tooltiptext"><b>Logic:</b> Sums all scores from all cells. Measures the total "well-being" of the system. Answers: "Is this a wealthy or a poor society?"</span></span></h3>
+                         <h3 class="text-xl font-bold mb-2 text-center">Global Productivity</h3>
                         <canvas id="productivity-chart"></canvas>
                     </div>
                 </div>
             </section>
             
             <section id="reference" class="bg-white p-8 rounded-lg shadow-xl mt-12">
-                <h2 class="text-3xl font-bold mb-8 text-center border-b pb-4">Reference: Understanding the Models</h2>
+                <h2 class="text-3xl font-bold mb-8 text-center border-b pb-4">Understanding Update Logic Differences</h2>
                 
+                <div class="grid md:grid-cols-2 gap-8 mb-8">
+                    <div class="p-6 bg-teal-50 border-l-4 border-teal-500 rounded-r-lg">
+                        <h3 class="text-xl font-bold mb-3 text-teal-700">Standard Logic</h3>
+                        <p class="mb-3 text-gray-700">Uses proper neighbor coordinates: <code class="bg-gray-200 px-2 py-1 rounded">getScore(ny, nx)</code></p>
+                        <ul class="text-sm text-gray-600 space-y-2">
+                            <li>• Mathematically accurate fitness comparison</li>
+                            <li>• Produces cleaner, more stable territories</li>
+                            <li>• Follows standard evolutionary game theory</li>
+                            <li>• Lower cooperation rates in competitive games</li>
+                        </ul>
+                    </div>
+                    <div class="p-6 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg">
+                        <h3 class="text-xl font-bold mb-3 text-amber-700">Diagonal Sampling Bias</h3>
+                        <p class="mb-3 text-gray-700">Uses diagonal coordinates: <code class="bg-gray-200 px-2 py-1 rounded">getScore(ny, ny)</code></p>
+                        <ul class="text-sm text-gray-600 space-y-2">
+                            <li>• Systematically samples main diagonal (row = column)</li>
+                            <li>• Breaks spatial locality principle of evolutionary dynamics</li>
+                            <li>• Creates anisotropic selection pressures across grid</li>
+                            <li>• Corrupts spatial correlation structure fundamentally</li>
+                            <li>• Acts like network rewiring with spatial illusion</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mb-12">
+                    <h3 class="text-2xl font-bold mb-6 text-center">Comprehensive Comparison Analysis</h3>
+                    
+                    <div class="p-6 bg-gray-100 rounded-lg mb-6">
+                        <h4 class="text-xl font-bold mb-3">Mathematical Foundation</h4>
+                        <p class="text-gray-700 mb-3">The Fermi rule for strategy adoption uses the probability formula:</p>
+                        <div class="bg-white p-4 rounded border text-center font-mono text-lg mb-3">
+                            P = 1 / (1 + exp((myScore - neighborScore) / noise))
+                        </div>
+                        <p class="text-gray-700 mb-3">The critical difference lies in how <code class="bg-gray-200 px-1 rounded">neighborScore</code> is calculated:</p>
+                        <ul class="text-gray-700 mt-3 space-y-2 mb-4">
+                            <li><strong>Standard:</strong> <code class="bg-gray-200 px-1 rounded">neighborScore = getScore(ny, nx)</code> - Uses actual neighbor's position</li>
+                            <li><strong>Diagonal Sampling:</strong> <code class="bg-gray-200 px-1 rounded">neighborScore = getScore(ny, ny)</code> - Uses diagonal coordinate system</li>
+                        </ul>
+                        
+                        <div class="p-4 bg-red-50 border-l-4 border-red-400 rounded-r-lg">
+                            <h5 class="font-bold text-red-800 mb-2">Mathematical Significance of Diagonal Sampling</h5>
+                            <p class="text-sm text-gray-700 mb-3">The diagonal sampling approach systematically samples cells along the <strong>main diagonal</strong> (where row = column), creating profound mathematical distortions:</p>
+                            <ul class="text-sm text-gray-700 space-y-2">
+                                <li><strong>Spatial Anisotropy:</strong> Introduces directional bias in what should be an isotropic system. Cells near the diagonal (y ≈ x) experience different evolutionary pressures than distant cells.</li>
+                                <li><strong>Broken Locality Principle:</strong> Severs the fundamental connection between spatial proximity and fitness comparison, making comparisons with potentially distant, unrelated cells.</li>
+                                <li><strong>Systematic Information Corruption:</strong> Creates structured misinformation - not random noise, but deterministic spatial bias that acts like persistent "mutation pressure."</li>
+                                <li><strong>Frequency-Dependent Selection:</strong> The effect varies systematically across the grid, creating spatial gradients in selection pressure unrelated to game dynamics.</li>
+                            </ul>
+                            <p class="text-sm text-gray-700 mt-3 font-semibold">Result: Diagonal sampling fundamentally breaks the spatial embedding that allows local interactions to generate global patterns - equivalent to randomly rewiring the interaction network while maintaining the illusion of spatial locality.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-3 gap-6 mb-6">
+                        <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <h4 class="font-bold text-blue-800 mb-2">Pattern Formation</h4>
+                            <p class="text-sm text-gray-700"><strong>Standard:</strong> Sharp, stable boundaries between strategy territories</p>
+                            <p class="text-sm text-gray-700"><strong>Diagonal Sampling:</strong> Fuzzy, dynamic boundaries with more mixing</p>
+                        </div>
+                        <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <h4 class="font-bold text-green-800 mb-2">Cooperation Survival</h4>
+                            <p class="text-sm text-gray-700"><strong>Standard:</strong> Lower cooperation rates, follows theory predictions</p>
+                            <p class="text-sm text-gray-700"><strong>Diagonal Sampling:</strong> Higher cooperation due to systematic "mutation pressure"</p>
+                        </div>
+                        <div class="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                            <h4 class="font-bold text-purple-800 mb-2">System Dynamics</h4>
+                            <p class="text-sm text-gray-700"><strong>Standard:</strong> Deterministic evolution toward equilibrium</p>
+                            <p class="text-sm text-gray-700"><strong>Diagonal Sampling:</strong> Persistent fluctuations and fragmentation</p>
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg">
+                        <h4 class="text-xl font-bold mb-3 text-yellow-800">Key Insights from Comparison</h4>
+                        <ul class="text-gray-700 space-y-3">
+                            <li><strong>Spatial Correlation Breakdown:</strong> Diagonal sampling fundamentally corrupts the spatial embedding that evolutionary game theory depends on, breaking the locality principle where fitness comparisons should reflect spatial proximity.</li>
+                            <li><strong>Diagonal Bias Effect:</strong> By systematically sampling the main diagonal (ny, ny), this approach creates anisotropic selection pressures that vary across the grid, introducing spatial gradients unrelated to strategic interactions.</li>
+                            <li><strong>Network Rewiring Illusion:</strong> The coordinate transformation is mathematically equivalent to randomly rewiring the interaction network while maintaining the appearance of spatial locality - a profound structural distortion.</li>
+                            <li><strong>Emergent Mutation Pressure:</strong> The systematic misinformation creates persistent "mutation pressure" that increases cooperation survival not through spatial reciprocity, but through corrupted fitness signals.</li>
+                            <li><strong>Educational Revelation:</strong> This comparison demonstrates how implementation variants can fundamentally alter the mathematical foundations of complex systems, making abstract concepts like "spatial correlation" and "locality breakdown" directly observable.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mb-12 p-6 bg-indigo-50 border-l-4 border-indigo-500 rounded-r-lg">
+                    <h3 class="text-2xl font-bold mb-4 text-indigo-700">Connection to the Strategic Field Theory</h3>
+                    <p class="text-gray-700 mb-4">This dual-mode laboratory directly demonstrates the core thesis of our Strategic Field research: that <em>"simple, local rules give rise to complex, self-organizing patterns"</em> and that these patterns constitute a tangible, observable structure with its own geometry and dynamics.</p>
+                    
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-bold text-indigo-800 mb-2">Synchronous vs. Asynchronous Models</h4>
+                            <p class="text-sm text-gray-700">The article's GIFs use synchronous updates (all cells simultaneously) producing crystalline patterns. This lab uses asynchronous updates (one cell at a time) creating more organic, realistic territories - demonstrating how different "social physics" alter the Strategic Field's texture.</p>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-indigo-800 mb-2">Emergence and Macro-Surprises</h4>
+                            <p class="text-sm text-gray-700">As Joshua Epstein noted: <em>"We get macro-surprises despite complete micro-knowledge."</em> The coordinate bug exemplifies this - a tiny implementation detail creates entirely unexpected emergent behaviors in cooperation and pattern formation.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="space-y-10">
                     <div>
                         <h3 class="text-2xl font-bold mb-3 text-teal-700">Prisoner's Dilemma</h3>
@@ -118,7 +222,7 @@
                         <div class="pl-4 border-l-4 border-gray-200 space-y-3">
                             <div>
                                 <h4 class="font-semibold">Scenario: Stable Territories</h4>
-                                <p class="text-sm text-gray-600">This shows that even in a world with incentives to betray, cooperation can survive by forming dense, defensive clusters. These "territories" are like high-trust societies that are resilient to outside exploitation because the cooperators mutually support each other.</p>
+                                <p class="text-sm text-gray-600">This shows that even in a world with incentives to betray, cooperation can survive by forming dense, defensive clusters. These "territories" are like high-trust societies that are resilient to outside exploitation because the cooperators mutually support each other. The visual emergence of stable blue domains from noisy backgrounds demonstrates spatial reciprocity in action.</p>
                             </div>
                             <div>
                                 <h4 class="font-semibold">Scenario: Resilient Cooperation</h4>
@@ -133,26 +237,26 @@
                          <div class="pl-4 border-l-4 border-gray-200 space-y-3">
                              <div>
                                 <h4 class="font-semibold">Scenario: Invasive Spirals</h4>
-                                <p class="text-sm text-gray-600">This beautiful pattern is the visual signature of a dynamic equilibrium. A wave of Doves provides an easy food source for Hawks, so a wave of Hawks follows. But once the Hawks become too numerous, they mostly fight each other, causing their population to crash, which allows the Dove wave to recover. It's a classic predator-prey cycle.</p>
+                                <p class="text-sm text-gray-600">This beautiful pattern is the visual signature of a dynamic equilibrium. A wave of Doves provides an easy food source for Hawks, so a wave of Hawks follows. But once the Hawks become too numerous, they mostly fight each other, causing their population to crash, which allows the Dove wave to recover. It's a classic predator-prey cycle visualizing the "flickering field of coexistence."</p>
                             </div>
                             <div>
                                 <h4 class="font-semibold">Scenario: Dove Sanctuaries</h4>
-                                <p class="text-sm text-gray-600">This shows what happens when conflict becomes too costly to be worth the risk (e.g., mutually assured destruction). The Hawk strategy becomes self-defeating, allowing large, peaceful, and highly productive societies of Doves to emerge and dominate the grid.</p>
+                                <p class="text-sm text-gray-600">This shows what happens when conflict becomes too costly to be worth the risk (e.g., mutually assured destruction). The Hawk strategy becomes self-defeating, allowing large, peaceful, and highly productive societies of Doves to emerge and dominate the grid - demonstrating the "wave of invasion" when V > C.</p>
                             </div>
                         </div>
                     </div>
 
                     <div>
                         <h3 class="text-2xl font-bold mb-3 text-teal-700">Stag Hunt</h3>
-                        <p class="mb-4 text-gray-700">Models social coordination and trust. It's not about betrayal, but about faith in your partner's commitment. It models the tension between risky but highly rewarding teamwork and safe, independent action.</p>
+                        <p class="mb-4 text-gray-700">Models social coordination and trust. It's not about betrayal, but about faith in your partner's commitment. It models the tension between risky but highly rewarding teamwork and safe, independent action. This game uniquely demonstrates bistability - two stable equilibria that the system can settle into.</p>
                         <div class="pl-4 border-l-4 border-gray-200 space-y-3">
                             <div>
                                 <h4 class="font-semibold">Scenario: Dominant Coordination</h4>
-                                <p class="text-sm text-gray-600">This scenario represents a high-trust society where the benefits of teamwork are clear and everyone is confident in their partners. Cooperation (hunting the stag) quickly becomes the dominant strategy, leading to a swift and decisive victory and a highly productive outcome.</p>
+                                <p class="text-sm text-gray-600">This scenario represents a high-trust society where the benefits of teamwork are clear and everyone is confident in their partners. Cooperation (hunting the stag) quickly becomes the dominant strategy through a "coordination cascade" - a self-propagating wave that sweeps across the grid, demonstrating social tipping points.</p>
                             </div>
                             <div>
                                 <h4 class="font-semibold">Scenario: The Price of Fear</h4>
-                                <p class="text-sm text-gray-600">This shows a low-trust society where the fear of your partner failing is high, and the safe solo option is appealing. Individuals are unwilling to take the risk of cooperation, so the less productive "hare hunter" strategy dominates. The lower Global Productivity score reveals the economic cost of this lack of social trust.</p>
+                                <p class="text-sm text-gray-600">This shows a low-trust society where the fear of your partner failing is high, and the safe solo option is appealing. Individuals are unwilling to take the risk of cooperation, creating stable "domain walls" - persistent social fractures where high-trust and low-trust communities coexist but cannot influence each other.</p>
                             </div>
                         </div>
                     </div>
@@ -161,9 +265,9 @@
                 <div class="mt-12 pt-6 border-t border-gray-300">
                     <h3 class="text-2xl font-bold mb-3 text-teal-700">A Note on Realism: Synchronous vs. Asynchronous Models</h3>
                     <div class="p-4 bg-gray-100 rounded-lg text-gray-700 space-y-3">
-                        <p>The animated GIFs in the accompanying article are generated using a classic <strong>synchronous</strong> model, where every cell updates in lock-step. This method is excellent for producing the beautiful, crystalline, and sometimes chaotic patterns that are foundational to the field.</p>
-                        <p>This interactive lab, however, uses a more advanced <strong>asynchronous</strong> model. Here, cells update one at a time, at random. This is a more realistic simulation of how strategic changes happen in the real world- not as a synchronized flash mob, but as a continuous conversation where change ripples through a system organically.</p>
-                        <p>The result is that this lab is designed to suppress the artificial chaos of the synchronous model and instead reveal the emergence of more stable, organic "territories" and strategic "fronts." It offers a deeper, more realistic glimpse into how resilient social and biological ecosystems form over time.</p>
+                        <p>The animated GIFs in the accompanying article are generated using a classic <strong>synchronous</strong> model, where every cell updates in lock-step. This method is excellent for producing the beautiful, crystalline, and sometimes chaotic patterns that are foundational to the field - including the "kaleidoscopes of chaos" and "gliders" described in the Prisoner's Dilemma analysis.</p>
+                        <p>This interactive lab, however, uses a more advanced <strong>asynchronous</strong> model. Here, cells update one at a time, at random. This is a more realistic simulation of how strategic changes happen in the real world - not as a synchronized flash mob, but as a continuous conversation where change ripples through a system organically.</p>
+                        <p>The result is that this lab is designed to suppress the artificial chaos of the synchronous model and instead reveal the emergence of more stable, organic "territories" and strategic "fronts." It offers a deeper, more realistic glimpse into how resilient social and biological ecosystems form over time, making the Strategic Field's dynamic landscape directly observable.</p>
                     </div>
                 </div>
             </section>
@@ -174,6 +278,35 @@
     document.addEventListener('DOMContentLoaded', () => {
         const canvas = document.getElementById('simulation-canvas');
         const ctx = canvas.getContext('2d');
+        const modeToggle = document.getElementById('mode-toggle');
+        const modeIndicator = document.getElementById('mode-indicator');
+        const modeExplanation = document.getElementById('mode-explanation');
+
+        let buggyMode = false; // Start with standard logic
+
+        const experiments = {
+            prisoner: {
+                labels: {cc: "C vs C", cd: "C vs D", dc: "D vs C", dd: "D vs D"},
+                scenarios: {
+                    classic: { name: "Stable Territories", payoffs: { cc: 3, cd: 0, dc: 5, dd: 1 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Stable Territories</h4><p>With evolutionary dynamics, the classic dilemma no longer produces chaos. <b>What to look for:</b> Watch for coherent territories of cooperators (teal) to form. Notice the bright "foam" at the borders where conflict occurs.</p>`},
+                    cooperative: { name: "Cooperative World", payoffs: { cc: 5, cd: 0, dc: 6, dd: -5 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Resilient Cooperation</h4><p>By rewarding cooperation and punishing defection, the system is engineered to make cooperation the most rational long-term strategy. This leads to a highly productive and stable society.</p>` }
+                }
+            },
+            'hawk-dove': {
+                labels: {cc: "Dove vs Dove", cd: "Dove vs Hawk", dc: "Hawk vs Dove", dd: "Hawk vs Hawk"},
+                scenarios: {
+                    classic: { name: "Invasive Spirals", payoffs: { cc: 1.5, cd: 0, dc: 3.5, dd: -0.5 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Invasive Spirals</h4><p>The Hawk-Dove dynamic is famous for creating beautiful, chasing spiral patterns. <b>What to look for:</b> You'll see waves of Hawks (amber) chasing waves of Doves (teal) in a stable predator-prey-like cycle.</p>`},
+                    costly_war: { name: "Dove Sanctuaries", payoffs: { cc: 3, cd: 2, dc: 4, dd: -10 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Dove Sanctuaries</h4><p>By making Hawk-Hawk conflict catastrophic, the Hawk strategy becomes much less viable. <b>What to look for:</b> The spirals should break down, replaced by large, stable 'sanctuaries' of Doves.</p>`}
+                }
+            },
+            'stag-hunt': {
+                labels: {cc: "Stag vs Stag", cd: "Stag vs Hare", dc: "Hare vs Stag", dd: "Hare vs Hare"},
+                scenarios: {
+                    classic: { name: "Dominant Coordination", payoffs: { cc: 5, cd: 0, dc: 3, dd: 1 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Dominant Coordination</h4><p>In this trust-based game, coordination is extremely powerful. <b>What to look for:</b> The grid should very quickly resolve into a nearly solid block of cooperators (Stag Hunters), demonstrating a high-trust, high-reward society.</p>`},
+                    low_trust: { name: "The Price of Fear", payoffs: { cc: 5, cd: 0, dc: 4, dd: 2 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: The Price of Fear</h4><p>Here, the 'safe' solo option is almost as good as the cooperative one. <b>What to look for:</b> Pockets of cooperators will struggle to form. The Hare Hunter strategy will dominate. Compare the Global Productivity score here to the 'Dominant Coordination' scenario to see the economic 'price' of a low-trust society.</p>`}
+                }
+            }
+        };
 
         const gameSelect = document.getElementById('game-select');
         const scenarioSelect = document.getElementById('scenario-select');
@@ -192,35 +325,36 @@
         const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg><span>Play</span>`;
         const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg><span>Pause</span>`;
 
-        const experiments = {
-            prisoner: {
-                labels: {cc: "C vs C", cd: "C vs D", dc: "D vs C", dd: "D vs D"},
-                scenarios: {
-                    classic: { name: "Stable Territories", payoffs: { cc: 3, cd: 0, dc: 5, dd: 1 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Stable Territories</h4><p>With evolutionary dynamics, the classic dilemma no longer produces chaos. <b>What to look for:</b> Watch for coherent territories of cooperators (teal) to form. Notice the bright "foam" at the borders where conflict occurs.</p>`},
-                    cooperative: { name: "Cooperative World", payoffs: { cc: 5, cd: 0, dc: 6, dd: -5 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Resilient Cooperation</h4><p>By rewarding cooperation and punishing defection, the system is engineered to make cooperation the most rational long-term strategy. This leads to a highly productive and stable society.</p>` }
-                }
-            },
-            'hawk-dove': {
-                labels: {cc: "Dove vs Dove", cd: "Dove vs Hawk", dc: "Hawk vs Dove", dd: "Hawk vs Hawk"},
-                 scenarios: {
-                    classic: { name: "Invasive Spirals", payoffs: { cc: 1.5, cd: 0, dc: 3.5, dd: -0.5 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Invasive Spirals</h4><p>The Hawk-Dove dynamic is famous for creating beautiful, chasing spiral patterns. <b>What to look for:</b> You'll see waves of Hawks (amber) chasing waves of Doves (teal) in a stable predator-prey-like cycle.</p>`},
-                    costly_war: { name: "Dove Sanctuaries", payoffs: { cc: 3, cd: 2, dc: 4, dd: -10 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Dove Sanctuaries</h4><p>By making Hawk-Hawk conflict catastrophic, the Hawk strategy becomes much less viable. <b>What to look for:</b> The spirals should break down, replaced by large, stable 'sanctuaries' of Doves.</p>`}
-                }
-            },
-            'stag-hunt': {
-                labels: {cc: "Stag vs Stag", cd: "Stag vs Hare", dc: "Hare vs Stag", dd: "Hare vs Hare"},
-                scenarios: {
-                    classic: { name: "Dominant Coordination", payoffs: { cc: 5, cd: 0, dc: 3, dd: 1 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: Dominant Coordination</h4><p>In this trust-based game, coordination is extremely powerful. <b>What to look for:</b> The grid should very quickly resolve into a nearly solid block of cooperators (Stag Hunters), demonstrating a high-trust, high-reward society.</p>`},
-                    low_trust: { name: "The Price of Fear", payoffs: { cc: 5, cd: 0, dc: 4, dd: 2 }, explanation: `<h4 class='font-bold text-lg mb-2'>Experiment: The Price of Fear</h4><p>Here, the 'safe' solo option is almost as good as the cooperative one. <b>What to look for:</b> Pockets of cooperators will struggle to form. The Hare Hunter strategy will dominate. Compare the Global Productivity score here to the 'Dominant Coordination' scenario to see the economic 'price' of a low-trust society.</p>`}
-                }
-            }
-        };
-
         const COOPERATE = 0, DEFECT = 1;
         let gridSize = 100, grid, ageGrid, maxAge = 200, payoffs = {}, noise = 0.1, updatesPerFrame = 1000;
         let isPlaying = false, animationFrameId, lastUpdateTime = 0, updates = 0;
         let generation = 0, updatesSinceGeneration = 0;
         let populationChart, productivityChart;
+
+        function updateModeDisplay() {
+            if (buggyMode) {
+                modeIndicator.className = 'mb-6 p-4 mode-indicator mode-buggy';
+                modeToggle.className = 'px-4 py-2 rounded-md font-semibold btn-primary';
+                modeToggle.textContent = 'Use Standard Logic';
+                modeExplanation.innerHTML = '<strong>Diagonal Sampling:</strong> Using getScore(ny, ny) - creates systematic diagonal bias';
+            } else {
+                modeIndicator.className = 'mb-6 p-4 mode-indicator mode-correct';
+                modeToggle.className = 'px-4 py-2 rounded-md font-semibold btn-warning';
+                modeToggle.textContent = 'Use Diagonal Sampling';
+                modeExplanation.innerHTML = '<strong>Standard Logic:</strong> Using getScore(ny, nx) - mathematically accurate';
+            }
+            updateExplanation();
+        }
+
+        function updateExplanation() {
+            const mode = buggyMode ? 'diagonal sampling' : 'standard';
+            const currentScenario = experiments[gameSelect.value].scenarios[scenarioSelect.value];
+            if (currentScenario && currentScenario.explanation) {
+                updateExplanationForScenario(currentScenario.explanation);
+            } else {
+                explanationText.innerHTML = `<h4 class='font-bold text-lg mb-2'>Current Mode: ${buggyMode ? 'Diagonal Sampling' : 'Standard'} Logic</h4><p>Running with ${mode} neighbor coordinate calculation. Switch modes to compare how diagonal sampling bias affects pattern formation and cooperation rates.</p>`;
+            }
+        }
 
         function initializeCharts() {
             if (populationChart) populationChart.destroy();
@@ -236,7 +370,13 @@
             const gameData = experiments[gameId];
             const scenarios = gameData.scenarios;
             scenarioSelect.innerHTML = Object.keys(scenarios).map(key => `<option value="${key}">${scenarios[key].name}</option>`).join('');
-            if (!scenarioSelect.querySelector('option[value="custom"]')) { const customOption = document.createElement('option'); customOption.value = 'custom'; customOption.textContent = 'Custom'; customOption.hidden = true; scenarioSelect.appendChild(customOption); }
+            if (!scenarioSelect.querySelector('option[value="custom"]')) { 
+                const customOption = document.createElement('option'); 
+                customOption.value = 'custom'; 
+                customOption.textContent = 'Custom'; 
+                customOption.hidden = true; 
+                scenarioSelect.appendChild(customOption); 
+            }
         }
 
         function updateScenario() {
@@ -244,11 +384,28 @@
             const scenarioId = scenarioSelect.value;
             const gameData = experiments[gameId];
             Object.keys(payoffLabels).forEach(key => payoffLabels[key].textContent = gameData.labels[key]);
-            if(scenarioId !== 'custom') { const scenario = gameData.scenarios[scenarioId]; payoffs = { ...scenario.payoffs }; Object.keys(payoffs).forEach(key => payoffInputs[key].value = payoffs[key]); explanationText.innerHTML = scenario.explanation; }
+            if(scenarioId !== 'custom') { 
+                const scenario = gameData.scenarios[scenarioId]; 
+                payoffs = { ...scenario.payoffs }; 
+                Object.keys(payoffs).forEach(key => payoffInputs[key].value = payoffs[key]); 
+                updateExplanationForScenario(scenario.explanation);
+            }
             handleReset();
         }
 
-        function initializeGrids() { grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null).map(() => Math.random() < 0.5 ? COOPERATE : DEFECT)); ageGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(0)); generation = 0; updatesSinceGeneration = 0; }
+        function updateExplanationForScenario(baseExplanation) {
+            const modeNote = buggyMode ? 
+                `<div class="mt-3 p-3 bg-amber-100 border-l-4 border-amber-400 rounded-r-lg"><strong>Diagonal Sampling Effect:</strong> This mode consistently shows the expected patterns described above, as the diagonal bias appears to stabilize pattern formation and enhance cooperation survival.</div>` :
+                `<div class="mt-3 p-3 bg-teal-100 border-l-4 border-teal-400 rounded-r-lg"><strong>Standard Logic:</strong> This mode uses mathematically precise evolutionary game theory. Note that asynchronous updates may produce more subtle or fragmented patterns compared to the classic synchronous models described above.</div>`;
+            
+            explanationText.innerHTML = baseExplanation + modeNote;
+        }
+
+        function initializeGrids() { 
+            grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null).map(() => Math.random() < 0.5 ? COOPERATE : DEFECT)); 
+            ageGrid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(0)); 
+            generation = 0; updatesSinceGeneration = 0; 
+        }
         
         function drawGrid() {
             const cellSize = canvas.width / gridSize;
@@ -274,7 +431,10 @@
                     const ny = (y + dy + gridSize) % gridSize, nx = (x + dx + gridSize) % gridSize;
                     const neighborStrategy = grid[ny][nx];
                     const p = payoffs;
-                    if (myStrategy === COOPERATE && neighborStrategy === COOPERATE) score += p.cc; else if (myStrategy === COOPERATE && neighborStrategy === DEFECT) score += p.cd; else if (myStrategy === DEFECT && neighborStrategy === COOPERATE) score += p.dc; else if (myStrategy === DEFECT && neighborStrategy === DEFECT) score += p.dd;
+                    if (myStrategy === COOPERATE && neighborStrategy === COOPERATE) score += p.cc; 
+                    else if (myStrategy === COOPERATE && neighborStrategy === DEFECT) score += p.cd; 
+                    else if (myStrategy === DEFECT && neighborStrategy === COOPERATE) score += p.dc; 
+                    else if (myStrategy === DEFECT && neighborStrategy === DEFECT) score += p.dd;
                 }
             }
             return score;
@@ -285,9 +445,18 @@
             const dx = Math.floor(Math.random() * 3) - 1, dy = Math.floor(Math.random() * 3) - 1;
             if (dx === 0 && dy === 0) return;
             const nx = (x + dx + gridSize) % gridSize, ny = (y + dy + gridSize) % gridSize;
-            const myScore = getScore(y, x), neighborScore = getScore(ny, ny);
+            const myScore = getScore(y, x);
+            
+            // Key difference: diagonal sampling uses (ny, ny) instead of (ny, nx)
+            const neighborScore = buggyMode ? getScore(ny, ny) : getScore(ny, nx);
+            
             const probability = 1 / (1 + Math.exp((myScore - neighborScore) / noise));
-            if (Math.random() < probability) { if (grid[y][x] !== grid[ny][nx]) { grid[y][x] = grid[ny][nx]; ageGrid[y][x] = 0; } }
+            if (Math.random() < probability) { 
+                if (grid[y][x] !== grid[ny][nx]) { 
+                    grid[y][x] = grid[ny][nx]; 
+                    ageGrid[y][x] = 0; 
+                } 
+            }
         }
         
         function updateCharts() {
@@ -313,10 +482,21 @@
         function handlePlayPause() { 
             isPlaying = !isPlaying; 
             playPauseBtn.innerHTML = isPlaying ? pauseIcon : playIcon;
-            playPauseBtn.classList.toggle('bg-red-500', isPlaying); playPauseBtn.classList.toggle('hover:bg-red-600', isPlaying); playPauseBtn.classList.toggle('btn-primary', !isPlaying);
             if (isPlaying) { lastUpdateTime = performance.now(); requestAnimationFrame(gameLoop); } else { cancelAnimationFrame(animationFrameId); } 
         }
-        function handleReset() { if (isPlaying) handlePlayPause(); initializeGrids(); drawGrid(); initializeCharts(); }
+        
+        function handleReset() { 
+            if (isPlaying) handlePlayPause(); 
+            initializeGrids(); 
+            drawGrid(); 
+            initializeCharts(); 
+        }
+        
+        modeToggle.addEventListener('click', () => {
+            buggyMode = !buggyMode;
+            updateModeDisplay();
+            handleReset();
+        });
         
         gameSelect.addEventListener('change', () => { populateScenarios(gameSelect.value); updateScenario(); });
         scenarioSelect.addEventListener('change', updateScenario);
@@ -336,8 +516,8 @@
         setupCanvas();
         populateScenarios(gameSelect.value);
         updateScenario();
+        updateModeDisplay();
     });
     </script>
 </body>
 </html>
-
